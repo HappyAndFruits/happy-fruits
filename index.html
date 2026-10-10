@@ -1,0 +1,1515 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="description" content="Happy Fruits — a cute fruit-merging puzzle. Drop matching fruits, fuse them into bigger ones, and don't overflow the basket."><meta property="og:title" content="Happy Fruits"><meta property="og:description" content="Drop matching fruits, fuse them into bigger ones, and don't overflow the basket."><meta property="og:type" content="website"><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Happy Fruits</title>
+<style>
+/* layout: full-bleed pastel sky canvas with drifting clouds, slim cream glass HUD top, floating next-fruit preview, game-over sheet pops from center */
+:root{
+  --sky-top:#bfe3ff;
+  --sky-mid:#d7ecff;
+  --sky-bot:#f3e9ff;
+  --panel:rgba(255,255,255,0.55);
+  --panel-border:rgba(255,255,255,0.8);
+  --fg:#4a3b6b;
+  --fg-dim:#8b7cae;
+  --accent:#ff8fb3;
+  --accent2:#7ec8ff;
+  --gold:#ffc861;
+  --danger:#ff6b7a;
+  --jar-line:#f6efe1;
+  color-scheme: light;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  background:var(--sky-mid);
+  color:var(--fg);
+  font-family:'Baloo 2', 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+  touch-action:none;
+}
+.stage{
+  position:relative;
+  width:100%;
+  height:100%;
+  display:flex;
+  flex-direction:column;
+}
+#c{
+  display:block;
+  width:100%;
+  flex:1;
+  min-height:0;
+  touch-action:none;
+  background:
+    radial-gradient(ellipse at 20% 0%, rgba(255,255,255,0.65), transparent 45%),
+    radial-gradient(ellipse at 80% 10%, rgba(255,255,255,0.45), transparent 50%),
+    linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 55%, var(--sky-bot) 100%);
+  cursor:pointer;
+}
+
+.hud{
+  position:relative;
+  z-index:5;
+  display:flex;
+  align-items:center;
+  gap:14px;
+  padding:10px 16px;
+  padding-top:calc(10px + env(safe-area-inset-top, 0px));
+  background:var(--panel);
+  border-bottom:1px solid var(--panel-border);
+  backdrop-filter:blur(10px);
+  flex-wrap:wrap;
+  box-shadow:0 2px 12px rgba(120,100,180,0.08);
+}
+.brand{
+  font-family:'Baloo 2', sans-serif;
+  font-weight:800;
+  font-size:19px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  white-space:nowrap;
+  color:#f5820c;
+  text-shadow:0 1px 0 rgba(255,255,255,0.6);
+}
+.brand .dot{width:29px;height:29px;flex:none}
+.hud-spacer{flex:1 1 auto}
+.hud-stat{
+  font-size:12px;
+  color:var(--fg-dim);
+  display:flex;
+  gap:6px;
+  align-items:baseline;
+  white-space:nowrap;
+  font-weight:600;
+}
+.hud-stat b{
+  color:var(--fg);
+  font-size:17px;
+  font-variant-numeric:tabular-nums;
+  font-weight:800;
+}
+.next-preview{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  background:rgba(255,255,255,0.7);
+  border:1px solid var(--panel-border);
+  border-radius:999px;
+  padding:4px 14px 4px 6px;
+}
+.next-preview .label{font-size:10px;color:var(--fg-dim);text-transform:uppercase;letter-spacing:0.06em;font-weight:700}
+.next-orb-wrap{width:26px;height:26px;display:flex;align-items:center;justify-content:center}
+.btn{
+  appearance:none;
+  border:1px solid var(--panel-border);
+  background:rgba(255,255,255,0.75);
+  color:var(--fg);
+  font-family:inherit;
+  font-weight:700;
+  font-size:13px;
+  padding:9px 14px;
+  border-radius:999px;
+  cursor:pointer;
+  transition:transform .12s ease, filter .15s ease;
+  white-space:nowrap;
+}
+.btn:hover{filter:brightness(1.05)}
+.btn:active{transform:scale(0.96)}
+.btn:focus-visible{outline:2px solid var(--accent2); outline-offset:2px}
+.btn-primary{
+  background:linear-gradient(120deg, var(--accent), #ffb0d0 55%, var(--gold));
+  color:#5a2a40;
+  font-weight:800;
+  border-color:transparent;
+  box-shadow:0 4px 14px rgba(255,143,179,0.45);
+}
+.btn-icon{
+  padding:9px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+
+
+.achieve{
+  position:absolute;
+  top:14px;
+  left:50%;
+  transform:translate(-50%,-140%);
+  z-index:20;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 20px 10px 12px;
+  border-radius:999px;
+  background:linear-gradient(135deg, rgba(255,255,255,0.82), rgba(255,240,250,0.78));
+  border:1px solid rgba(255,255,255,0.9);
+  box-shadow:0 14px 40px rgba(140,80,160,0.28), 0 2px 10px rgba(0,0,0,0.08);
+  pointer-events:none;
+  opacity:0;
+  transition:transform .5s cubic-bezier(.22,1.1,.3,1.2), opacity .35s ease;
+  overflow:visible;
+}
+.achieve.show{
+  transform:translate(-50%,0);
+  opacity:1;
+}
+.achieve-glow{
+  position:absolute;
+  inset:-26px;
+  z-index:-1;
+  border-radius:999px;
+  background:
+    radial-gradient(ellipse 55% 70% at 30% 50%, rgba(255,214,120,0.55), transparent 70%),
+    radial-gradient(ellipse 55% 70% at 70% 50%, rgba(255,150,210,0.5), transparent 70%),
+    radial-gradient(ellipse 80% 90% at 50% 50%, rgba(220,190,255,0.4), transparent 75%);
+  filter:blur(14px);
+  opacity:0;
+  transition:opacity .5s ease;
+}
+.achieve.show .achieve-glow{ opacity:1; animation:achieveHaze 2.2s ease-in-out infinite; }
+@keyframes achieveHaze{
+  0%,100%{ transform:scale(1); }
+  50%{ transform:scale(1.08); }
+}
+.achieve canvas{ width:38px; height:38px; flex:none; filter:drop-shadow(0 2px 6px rgba(0,0,0,0.15)); }
+.achieve-title{
+  font-family:'Baloo 2',sans-serif;
+  font-weight:800;
+  font-size:15px;
+  color:#a8306a;
+  line-height:1.15;
+}
+.achieve-sub{
+  font-size:11.5px;
+  font-weight:600;
+  color:var(--fg-dim);
+  margin-top:1px;
+}
+
+.overlay{
+  position:absolute;
+  inset:0;
+  z-index:15;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:rgba(90,60,110,0.35);
+  backdrop-filter:blur(6px);
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .3s ease;
+}
+.overlay.show{opacity:1;pointer-events:auto}
+.sheet{
+  background:linear-gradient(160deg, #fff8ef, #ffeef5 60%);
+  border:2px solid #fff;
+  border-radius:26px;
+  padding:28px 32px;
+  text-align:center;
+  max-width:92vw;
+  width:360px;
+  box-shadow:0 30px 70px rgba(120,80,140,0.35);
+  transform:translateY(24px) scale(0.96);
+  transition:transform .35s cubic-bezier(.2,.9,.25,1.2);
+}
+.overlay.show .sheet{transform:translateY(0) scale(1)}
+.sheet h2{
+  margin:0 0 4px;
+  font-family:'Baloo 2',sans-serif;
+  font-size:26px;
+  font-weight:800;
+  color:#e8558a;
+}
+.sheet .score-big{
+  font-size:48px;
+  font-weight:800;
+  font-variant-numeric:tabular-nums;
+  background:linear-gradient(120deg, #ff8fb3, var(--gold));
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+  margin:10px 0 2px;
+  font-family:'Baloo 2',sans-serif;
+}
+.sheet .best{font-size:12.5px;color:var(--fg-dim);margin-bottom:18px;font-weight:600}
+.start-hint{
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-50%);
+  z-index:8;
+  text-align:center;
+  pointer-events:none;
+}
+.start-hint .big{font-family:'Baloo 2',sans-serif;font-weight:800;font-size:clamp(20px,5vw,32px);
+  position:relative;
+  display:inline-flex;
+  align-items:center;
+  white-space:nowrap;
+  gap:0.2em;
+  padding:0.5em 1.1em;
+  color:#f5820c;
+  text-shadow:0 2px 0 rgba(255,255,255,0.75);
+}
+.start-hint .big::before{
+  content:"";
+  position:absolute;
+  top:50%; left:50%;
+  width:5.2em; height:5.2em;
+  transform:translate(-50%,-50%);
+  background:repeating-conic-gradient(from 0deg, rgba(255,171,64,0.4) 0deg 2.6deg, transparent 2.6deg 16deg);
+  border-radius:50%;
+  z-index:-1;
+  pointer-events:none;
+}
+.start-hint .big canvas{
+  width:1.1em;
+  height:1.1em;
+  vertical-align:middle;
+  flex:none;
+}
+.start-hint .small{margin-top:8px;font-size:13px;color:var(--fg-dim);font-weight:600}
+
+@media (max-width:640px){
+  .hud{gap:8px;padding:8px 10px;padding-top:calc(8px + env(safe-area-inset-top,0px))}
+  .brand{font-size:15px}
+  .btn,.next-preview{padding:7px 10px;font-size:12px}
+}
+</style>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+
+<div class="stage">
+  <div class="hud">
+    <div class="brand"><canvas class="dot" id="brandIcon" width="48" height="48"></canvas>Happy Fruits</div>
+    <div class="hud-spacer"></div>
+    <div class="hud-stat">Score <b id="statScore">0</b></div>
+    <div class="hud-stat">Best <b id="statBest">0</b></div>
+    <div class="next-preview">
+      <span class="label">Next</span>
+      <span class="next-orb-wrap"><canvas id="nextCanvas" width="52" height="52" style="width:26px;height:26px"></canvas></span>
+    </div>
+    <button class="btn btn-icon" id="muteBtn" aria-label="Mute sound" aria-pressed="false">
+      <svg id="muteIconOn" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10v4h4l5 5V5L8 10H4z"/><path d="M16 8.5a5 5 0 0 1 0 7"/><path d="M18.5 6a9 9 0 0 1 0 12"/></svg>
+      <svg id="muteIconOff" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#e8495f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M4 10v4h4l5 5V5L8 10H4z"/><line x1="3" y1="3" x2="21" y2="21"/></svg>
+    </button>
+    <button class="btn btn-primary" id="restartBtn">Restart ↻</button>
+  </div>
+
+  <canvas id="c"></canvas>
+
+  <div class="start-hint" id="startHint">
+    <div class="big"><span>Tap to drop</span><canvas id="hintCherry" width="64" height="64"></canvas></div>
+    <div class="small">Match fruits to fuse them bigger — don't overflow the basket</div>
+  </div>
+
+  <div class="achieve" id="achieveBanner">
+    <div class="achieve-glow"></div>
+    <canvas id="achieveIcon" width="64" height="64"></canvas>
+    <div class="achieve-text">
+      <div class="achieve-title" id="achieveTitle">Achievement!</div>
+      <div class="achieve-sub" id="achieveSub">Something great happened</div>
+    </div>
+  </div>
+
+  <div class="overlay" id="overlay">
+    <div class="sheet">
+      <h2 id="overTitle">Basket Overflowed!</h2>
+      <div class="score-big" id="overScore">0</div>
+      <div class="best" id="overBest">Best: 0</div>
+      <button class="btn btn-primary" id="overRestart">Play Again</button>
+    </div>
+  </div>
+
+  <div id="debugError" style="display:none;position:absolute;left:8px;right:8px;bottom:8px;z-index:50;background:#2a1030;color:#ff9db0;font:11px/1.4 monospace;padding:10px 12px;border-radius:10px;white-space:pre-wrap;max-height:40%;overflow:auto;"></div>
+</div>
+
+<script>
+window.addEventListener('error', function(e){
+  var el = document.getElementById('debugError');
+  if (!el) return;
+  el.style.display = 'block';
+  el.textContent = 'JS error: ' + (e.message||'') + '\n' + (e.filename||'') + ':' + (e.lineno||'') + ':' + (e.colno||'') + '\n' + ((e.error && e.error.stack) || '');
+});
+</script>
+
+<script>
+(() => {
+'use strict';
+
+// ---------- Sound ----------
+// Everything is synthesized with Web Audio — no external files, no network, and
+// nothing to load before a sound can play. The context starts on the first tap,
+// satisfying the browser's autoplay-requires-a-gesture rule.
+let actx = null;
+let soundMuted = false;
+try { soundMuted = localStorage.getItem('ff_muted') === '1'; } catch(e){}
+
+function ensureAudio(){
+  if (actx) return actx;
+  try {
+    actx = new (window.AudioContext || window.webkitAudioContext)();
+  } catch(e){ actx = null; }
+  return actx;
+}
+
+function playTone(freq, {duration=0.14, type='sine', gain=0.18, glideTo=null, delay=0} = {}){
+  if (soundMuted) return;
+  const ac = ensureAudio();
+  if (!ac) return;
+  if (ac.state === 'suspended') ac.resume().catch(()=>{});
+  const t0 = ac.currentTime + delay;
+  const osc = ac.createOscillator();
+  const g = ac.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, t0);
+  if (glideTo) osc.frequency.exponentialRampToValueAtTime(glideTo, t0 + duration);
+  g.gain.setValueAtTime(0, t0);
+  g.gain.linearRampToValueAtTime(gain, t0 + 0.012);
+  g.gain.exponentialRampToValueAtTime(0.001, t0 + duration);
+  osc.connect(g).connect(ac.destination);
+  osc.start(t0);
+  osc.stop(t0 + duration + 0.02);
+}
+
+function sfxDrop(){
+  playTone(520, { duration:0.07, type:'triangle', gain:0.12, glideTo:420 });
+}
+
+function sfxMerge(tier){
+  // pitch climbs with tier so bigger fuses sound more satisfying/triumphant
+  const base = 340 + tier*55;
+  playTone(base, { duration:0.1, type:'sine', gain:0.16, glideTo:base*1.6 });
+  playTone(base*1.5, { duration:0.16, type:'sine', gain:0.11, glideTo:base*2.2, delay:0.03 });
+}
+
+function sfxLand(){
+  playTone(180, { duration:0.06, type:'sine', gain:0.05, glideTo:120 });
+}
+
+function sfxGameOver(){
+  playTone(320, { duration:0.5, type:'sawtooth', gain:0.1, glideTo:90 });
+}
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const statScore = document.getElementById('statScore');
+const statBest = document.getElementById('statBest');
+const nextCanvas = document.getElementById('nextCanvas');
+const nctx = nextCanvas.getContext('2d');
+const hintCherry = document.getElementById('hintCherry');
+const hctx = hintCherry.getContext('2d');
+const brandIcon = document.getElementById('brandIcon');
+const bctx = brandIcon.getContext('2d');
+const overlay = document.getElementById('overlay');
+const overTitle = document.getElementById('overTitle');
+const overScore = document.getElementById('overScore');
+const overBest = document.getElementById('overBest');
+const restartBtn = document.getElementById('restartBtn');
+const overRestart = document.getElementById('overRestart');
+const startHint = document.getElementById('startHint');
+const muteBtn = document.getElementById('muteBtn');
+const muteIconOn = document.getElementById('muteIconOn');
+const muteIconOff = document.getElementById('muteIconOff');
+const achieveBanner = document.getElementById('achieveBanner');
+const achieveIcon = document.getElementById('achieveIcon');
+const achieveTitle = document.getElementById('achieveTitle');
+const achieveSub = document.getElementById('achieveSub');
+const actx2 = achieveIcon.getContext('2d');
+
+let DPR = Math.min(window.devicePixelRatio || 1, 2);
+let W = 0, H = 0;
+let WALL_L = 0, WALL_R = 0, FLOOR = 0, CEILING = 0, GRASS_H = 0, LANDING_Y = 0;
+
+function resize(){
+  const rect = canvas.getBoundingClientRect();
+  W = Math.max(300, rect.width);
+  H = Math.max(420, rect.height);
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = Math.round(W * DPR);
+  canvas.height = Math.round(H * DPR);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const margin = Math.min(28, W*0.06);
+  WALL_L = margin;
+  WALL_R = W - margin;
+  FLOOR = H - 18;
+  CEILING = 54;
+  GRASS_H = Math.max(14, (FLOOR-CEILING)*0.035+12);
+  LANDING_Y = FLOOR - GRASS_H;
+}
+window.addEventListener('resize', resize);
+
+// ---------- Fruit tiers ----------
+// Each tier is a distinct, recognizable fruit silhouette (not a plain colored disc),
+// drawn by its own shape function so players can tell cherry from apple from banana at a glance.
+const TIERS = [
+  { name:'Cherry',     r:14, score:1  },
+  { name:'Strawberry', r:19, score:3  },
+  { name:'Grape',      r:24, score:6  },
+  { name:'Plum',       r:28, score:9  },
+  { name:'Lemon',      r:33, score:14 },
+  { name:'Apple',      r:39, score:20 },
+  { name:'Orange',     r:46, score:28 },
+  { name:'Banana',     r:54, score:38 },
+  { name:'Peach',      r:63, score:52 },
+  { name:'Kiwi',       r:71, score:68 },
+  { name:'Watermelon', r:82, score:90 },
+];
+const MAX_TIER = TIERS.length - 1;
+
+// ---------- Physics ----------
+const GRAVITY = 1700;
+const RESTITUTION = 0.14;
+const DAMPING = 0.95;
+
+let orbs = [];
+let particles = [];
+let clouds = [];
+
+let score = 0;
+let best = 0;
+try { best = parseInt(localStorage.getItem('ff_best')||'0',10) || 0; } catch(e){}
+statBest.textContent = best;
+
+let dropX = 0;
+let currentTier = 0;
+let queuedTier = 0;
+let canDrop = true;
+let dropCooldown = 0;
+let gameOver = false;
+let started = false;
+
+function randomStartTier(){
+  const r = Math.random();
+  if (r < 0.45) return 0;
+  if (r < 0.75) return 1;
+  if (r < 0.92) return 2;
+  return 3;
+}
+
+function initClouds(){
+  clouds = [];
+  const count = 9 + Math.floor(Math.random()*4); // 9-12, denser and more varied than before
+  for (let i=0;i<count;i++){
+    const scale = 0.35 + Math.random()*1.5; // small wisps up to big puffy clouds
+    const lobeCount = 2 + Math.floor(Math.random()*4); // 2-5 puffs per cloud
+    const lobes = [];
+    for (let l=0; l<lobeCount; l++){
+      const t = lobeCount > 1 ? l/(lobeCount-1) : 0.5;
+      lobes.push({
+        dx: (t-0.5)*2.6 + (Math.random()-0.5)*0.4,
+        dy: (Math.random()-0.5)*0.5 + (l%2===0 ? 0.1 : -0.05),
+        rx: 0.7 + Math.random()*0.7,
+        ry: 0.4 + Math.random()*0.45,
+      });
+    }
+    const alpha = 0.35 + Math.random()*0.5; // varied density — some hazy/thin, some solid
+    clouds.push({
+      x: Math.random(),
+      y: 0.02 + Math.random()*0.42,
+      scale,
+      speed: (2 + Math.random()*7) * (scale < 0.7 ? 1.3 : 0.8), // smaller/distant wisps drift faster-feeling, big ones lazier
+      alpha,
+      fillStyle: `rgba(255,255,255,${alpha})`, // built once instead of every frame
+      lobes,
+    });
+  }
+}
+
+// ---------- Achievements ----------
+// A hazy little banner that celebrates a first-time fruit or a score milestone.
+// Queued so a burst of quick merges doesn't overlap two banners at once.
+const SCORE_MILESTONES = [50, 120, 250, 450, 700, 1000, 1500, 2200];
+let reachedTiers = new Set();
+let nextMilestoneIdx = 0;
+let achieveQueue = [];
+let achieveShowing = false;
+let achieveTimer = null;
+
+function queueAchievement(title, sub, tier){
+  achieveQueue.push({ title, sub, tier });
+  if (!achieveShowing) showNextAchievement();
+}
+
+function showNextAchievement(){
+  const next = achieveQueue.shift();
+  if (!next){ achieveShowing = false; return; }
+  achieveShowing = true;
+  achieveTitle.textContent = next.title;
+  achieveSub.textContent = next.sub;
+  actx2.clearRect(0,0,64,64);
+  actx2.save();
+  actx2.translate(32,32);
+  drawFruitShape(actx2, 0, 0, 26, next.tier, 0, 0);
+  actx2.restore();
+  achieveBanner.classList.add('show');
+  playTone(700, { duration:0.1, type:'sine', gain:0.14, glideTo:1000 });
+  clearTimeout(achieveTimer);
+  achieveTimer = setTimeout(() => {
+    achieveBanner.classList.remove('show');
+    setTimeout(showNextAchievement, 450);
+  }, 2000);
+}
+
+function checkMergeAchievement(tier){
+  if (!reachedTiers.has(tier)){
+    reachedTiers.add(tier);
+    if (tier >= 2){ // skip the trivially-reached first couple of tiers
+      queueAchievement(`First ${TIERS[tier].name}!`, 'New fruit unlocked', tier);
+    }
+  }
+}
+
+function checkScoreAchievement(){
+  while (nextMilestoneIdx < SCORE_MILESTONES.length && score >= SCORE_MILESTONES[nextMilestoneIdx]){
+    const milestone = SCORE_MILESTONES[nextMilestoneIdx];
+    nextMilestoneIdx++;
+    queueAchievement(`${milestone} points!`, 'Keep fusing', TIERS.length-1);
+  }
+}
+
+function resetAchievements(){
+  reachedTiers = new Set();
+  nextMilestoneIdx = 0;
+  achieveQueue = [];
+  achieveShowing = false;
+  clearTimeout(achieveTimer);
+  achieveBanner.classList.remove('show');
+}
+
+function newRun(){
+  resize();
+  if (!fruitSprites) buildFruitSprites();
+  orbs = [];
+  particles = [];
+  score = 0;
+  gameOver = false;
+  started = false;
+  currentTier = randomStartTier();
+  queuedTier = randomStartTier();
+  dropX = W/2;
+  canDrop = true;
+  resetAchievements();
+  initClouds();
+  updateHUD();
+  drawHintCherry();
+  drawBrandIcon();
+  overlay.classList.remove('show');
+  startHint.style.display = 'block';
+  // paint the first frame synchronously so the jar/clouds are visible even if
+  // the animation loop's first tick is delayed (e.g. a host that pauses rAF
+  // for an off-viewport or just-mounted iframe)
+  try { render(); } catch(e){}
+}
+
+function updateHUD(){
+  statScore.textContent = score;
+  statBest.textContent = best;
+  nctx.clearRect(0,0,52,52);
+  nctx.save();
+  nctx.translate(26,26);
+  drawFruitShape(nctx, 0, 0, 20, queuedTier, 0, 0);
+  nctx.restore();
+}
+
+function drawHintCherry(){
+  hctx.clearRect(0,0,64,64);
+  hctx.save();
+  hctx.translate(32,32);
+  drawFruitShape(hctx, 0, 0, 28, 0, 0, 0);
+  hctx.restore();
+}
+
+function drawBrandIcon(){
+  bctx.clearRect(0,0,48,48);
+  bctx.save();
+  bctx.translate(24,24);
+  drawFruitShape(bctx, 0, 0, 22, 10, 0, 0);
+  bctx.restore();
+}
+
+// ---------- Input ----------
+function pointerX(clientX){
+  const rect = canvas.getBoundingClientRect();
+  return Math.max(WALL_L+TIERS[currentTier].r, Math.min(WALL_R-TIERS[currentTier].r, clientX - rect.left));
+}
+
+canvas.addEventListener('pointermove', (e) => {
+  if (gameOver) return;
+  dropX = pointerX(e.clientX);
+});
+canvas.addEventListener('pointerdown', (e) => {
+  if (gameOver) return;
+  started = true;
+  startHint.style.display = 'none';
+  dropX = pointerX(e.clientX);
+  doDrop();
+});
+
+function doDrop(){
+  if (!canDrop || gameOver) return;
+  canDrop = false;
+  dropCooldown = 0.08;
+  sfxDrop();
+  const r = TIERS[currentTier].r;
+  orbs.push({
+    x: dropX, y: CEILING - r - 4,
+    vx: 0, vy: 0,
+    r, tier: currentTier,
+    settled:false, flash:0, id: Math.random(),
+    rot: (Math.random()-0.5)*0.6,
+  });
+  currentTier = queuedTier;
+  queuedTier = randomStartTier();
+  updateHUD();
+}
+
+// ---------- Physics step ----------
+function physicsStep(dt){
+  if (gameOver) return;
+  if (!canDrop){
+    dropCooldown -= dt;
+    if (dropCooldown <= 0) canDrop = true;
+  }
+
+  for (const o of orbs){
+    if (o.flash > 0) o.flash -= dt*3;
+    if (o.asleep) continue; // fully at rest — skip gravity/motion entirely so it can't micro-jitter
+
+    o.vy += GRAVITY * dt;
+    o.vx *= DAMPING;
+    o.vy *= DAMPING;
+    o.x += o.vx * dt;
+    o.y += o.vy * dt;
+
+    if (o.x - o.r < WALL_L){ o.x = WALL_L + o.r; o.vx = Math.abs(o.vx)*RESTITUTION; }
+    if (o.x + o.r > WALL_R){ o.x = WALL_R - o.r; o.vx = -Math.abs(o.vx)*RESTITUTION; }
+    if (o.y + o.r > LANDING_Y){
+      o.y = LANDING_Y - o.r;
+      if (!o.settled && Math.abs(o.vy) > 60) sfxLand();
+      o.vy = -Math.abs(o.vy)*RESTITUTION*0.5;
+      o.settled = true;
+    }
+
+    // once a resting fruit has nearly stopped, put it fully to sleep instead of
+    // letting gravity keep nudging it into the floor/neighbors every frame
+    if (o.settled && Math.abs(o.vx) < 6 && Math.abs(o.vy) < 10){
+      o.vx = 0; o.vy = 0;
+      o.asleep = true;
+    }
+  }
+
+  const toRemove = new Set();
+  const toAdd = [];
+  for (let i = 0; i < orbs.length; i++){
+    const a = orbs[i];
+    if (toRemove.has(a)) continue;
+    for (let j = i+1; j < orbs.length; j++){
+      const b = orbs[j];
+      if (toRemove.has(b)) continue;
+      // two sleeping neighbors can't have moved relative to each other since
+      // they last settled — skip the distance math for them entirely. This is
+      // the pair check that matters most once the basket fills up late-game,
+      // since most fruits are asleep by then.
+      if (a.asleep && b.asleep) continue;
+      const dx = b.x-a.x, dy = b.y-a.y;
+      const minD = a.r+b.r;
+      const distSq = dx*dx + dy*dy;
+      if (distSq >= minD*minD || distSq <= 0.0001) continue; // cheap reject before the sqrt below
+      const dist = Math.sqrt(distSq);
+      if (a.tier === b.tier && a.tier < MAX_TIER && !toRemove.has(a) && !toRemove.has(b)){
+        toRemove.add(a); toRemove.add(b);
+        const nt = a.tier+1;
+        const newR = TIERS[nt].r;
+        // clamp the merge spawn point so a bigger fruit can't appear poking past the walls
+        const nx = Math.min(WALL_R-newR, Math.max(WALL_L+newR, (a.x+b.x)/2));
+        const ny = (a.y+b.y)/2;
+        toAdd.push({ x:nx, y:ny, vx:0, vy:-60, r:newR, tier:nt, settled:false, flash:1, id:Math.random(), rot:(Math.random()-0.5)*0.6 });
+        score += TIERS[nt].score;
+        spawnBurst(nx, ny, nt);
+        sfxMerge(nt);
+        checkMergeAchievement(nt);
+        checkScoreAchievement();
+        continue;
+      }
+
+      const nx = dx/dist, ny = dy/dist;
+      const overlap = (minD-dist)*0.5;
+      a.x -= nx*overlap; a.y -= ny*overlap;
+      b.x += nx*overlap; b.y += ny*overlap;
+      const rvx = b.vx-a.vx, rvy = b.vy-a.vy;
+      const vn = rvx*nx+rvy*ny;
+      if (vn < 0){
+        const imp = -(1+0.12)*vn/2;
+        a.vx -= imp*nx; a.vy -= imp*ny;
+        b.vx += imp*nx; b.vy += imp*ny;
+        // a real nudge from a moving neighbor wakes a sleeping fruit back up
+        if (Math.abs(imp) > 18){ a.asleep = false; b.asleep = false; }
+      }
+    }
+  }
+  if (toRemove.size){
+    orbs = orbs.filter(o => !toRemove.has(o));
+    orbs.push(...toAdd);
+    updateHUD();
+  }
+
+  // safety clamp: a merge or a neighbor's overlap push can shove a fruit below the
+  // grass line or past a side wall after the checks above ran — a sleeping fruit
+  // skips its own wall/floor checks, so an awake neighbor bumping it can shift it
+  // past a boundary with nothing left to correct it. Catch that every frame.
+  for (const o of orbs){
+    if (o.y + o.r > LANDING_Y){
+      o.y = LANDING_Y - o.r;
+      o.asleep = false;
+      o.settled = true;
+      if (o.vy > 0) o.vy = 0;
+    }
+    if (o.x - o.r < WALL_L){ o.x = WALL_L + o.r; o.asleep = false; if (o.vx < 0) o.vx = 0; }
+    if (o.x + o.r > WALL_R){ o.x = WALL_R - o.r; o.asleep = false; if (o.vx > 0) o.vx = 0; }
+  }
+
+  let overflow = false;
+  for (const o of orbs){
+    if (o.y - o.r < CEILING && Math.abs(o.vy) < 40 && o.settled){
+      o.overTime = (o.overTime||0) + dt;
+      if (o.overTime > 0.9) overflow = true;
+    } else {
+      o.overTime = 0;
+    }
+  }
+  if (overflow && started) triggerGameOver();
+
+  updateParticles(dt);
+  for (const cl of clouds){
+    cl.x += cl.speed*dt/W;
+    if (cl.x > 1.3) cl.x = -0.3;
+  }
+}
+
+function triggerGameOver(){
+  gameOver = true;
+  sfxGameOver();
+  if (score > best){
+    best = score;
+    try { localStorage.setItem('ff_best', String(best)); } catch(e){}
+  }
+  overTitle.textContent = 'Basket Overflowed!';
+  overScore.textContent = score;
+  overBest.textContent = `Best: ${best}`;
+  overlay.classList.add('show');
+}
+
+function drawParticles(){
+  for (const p of particles){
+    const a = Math.max(0, 1 - p.age/p.life);
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.fillStyle = `hsl(${p.hue} 90% 62%)`;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+function spawnBurst(x,y,tier){
+  const hues = [350, 20, 45, 100, 330];
+  for (let i=0;i<22;i++){
+    const a = Math.random()*Math.PI*2;
+    const sp = 80+Math.random()*180;
+    particles.push({
+      x,y, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp - 60,
+      hue: hues[i%hues.length],
+      size: 2.5+Math.random()*4,
+      life: 0.5+Math.random()*0.4, age:0,
+    });
+  }
+}
+function updateParticles(dt){
+  for (const p of particles){
+    p.age += dt;
+    p.vy += 500*dt;
+    p.x += p.vx*dt;
+    p.y += p.vy*dt;
+  }
+  particles = particles.filter(p=>p.age<p.life);
+}
+
+// ---------- Render ----------
+function render(){
+  ctx.clearRect(0,0,W,H);
+  drawClouds();
+
+  ctx.save();
+
+  drawJar();
+  drawGrassFloor();
+  drawDangerLine();
+  drawOrbs();
+  drawParticles();
+  if (!gameOver && started) drawGhost();
+
+  ctx.restore();
+}
+
+function drawClouds(){
+  ctx.save();
+  for (const cl of clouds){
+    const cx = cl.x*W, cy = cl.y*H*0.6+20, s = cl.scale*22;
+    ctx.fillStyle = cl.fillStyle;
+    ctx.beginPath();
+    for (const lobe of cl.lobes){
+      ctx.moveTo(cx + lobe.dx*s + lobe.rx*s, cy + lobe.dy*s);
+      ctx.ellipse(cx + lobe.dx*s, cy + lobe.dy*s, lobe.rx*s, lobe.ry*s, 0, 0, Math.PI*2);
+    }
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawJar(){
+  const grad = ctx.createLinearGradient(0,CEILING,0,FLOOR);
+  grad.addColorStop(0,'rgba(255,255,255,0.35)');
+  grad.addColorStop(1,'rgba(255,255,255,0.55)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(WALL_L,CEILING,WALL_R-WALL_L,FLOOR-CEILING);
+
+  drawBambooPole(WALL_L, CEILING-14, FLOOR);
+  drawBambooPole(WALL_R, CEILING-14, FLOOR);
+}
+
+function drawBambooPole(x, topY, botY){
+  const poleW = 11;
+  ctx.save();
+  // culm gradient: pale center highlight, olive-green shading at the edges
+  const grad = ctx.createLinearGradient(x-poleW/2, 0, x+poleW/2, 0);
+  grad.addColorStop(0, '#5f8f3a');
+  grad.addColorStop(0.45, '#9fcf5f');
+  grad.addColorStop(0.55, '#a8d669');
+  grad.addColorStop(1, '#4f7a30');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.moveTo(x-poleW/2+3, topY);
+  ctx.arcTo(x+poleW/2, topY, x+poleW/2, topY+3, 3);
+  ctx.lineTo(x+poleW/2, botY-3);
+  ctx.arcTo(x+poleW/2, botY, x+poleW/2-3, botY, 3);
+  ctx.lineTo(x-poleW/2+3, botY);
+  ctx.arcTo(x-poleW/2, botY, x-poleW/2, botY-3, 3);
+  ctx.lineTo(x-poleW/2, topY+3);
+  ctx.arcTo(x-poleW/2, topY, x-poleW/2+3, topY, 3);
+  ctx.closePath();
+  ctx.fill();
+
+  // segment nodes (the ringed joints bamboo culms are known for)
+  const nodeGap = 38;
+  ctx.strokeStyle = 'rgba(79,122,48,0.7)';
+  ctx.fillStyle = 'rgba(200,230,150,0.5)';
+  for (let y = topY + 16; y < botY; y += nodeGap){
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(x-poleW/2-1, y);
+    ctx.lineTo(x+poleW/2+1, y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(x, y-6, poleW*0.22, 5, 0, 0, Math.PI*2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawGrassFloor(){
+  const bandH = GRASS_H;
+  const topY = LANDING_Y;
+  ctx.save();
+  // clip to the basket interior so the grass never spills past the walls
+  ctx.beginPath();
+  ctx.rect(WALL_L, topY-6, WALL_R-WALL_L, bandH+10);
+  ctx.clip();
+
+  const grad = ctx.createLinearGradient(0, topY, 0, FLOOR);
+  grad.addColorStop(0, '#8fd86a');
+  grad.addColorStop(1, '#4c9a3f');
+  ctx.fillStyle = grad;
+  ctx.fillRect(WALL_L, topY, WALL_R-WALL_L, bandH);
+
+  // jagged blade silhouette along the top edge of the lawn
+  const bladeW = 9;
+  ctx.fillStyle = '#6fc24a';
+  ctx.beginPath();
+  ctx.moveTo(WALL_L, topY);
+  let bx = WALL_L;
+  let up = true;
+  while (bx < WALL_R){
+    const h = up ? 7 : 3;
+    ctx.lineTo(bx+bladeW/2, topY-h);
+    bx += bladeW;
+    ctx.lineTo(bx, topY);
+    up = !up;
+  }
+  ctx.lineTo(WALL_R, topY);
+  ctx.lineTo(WALL_R, topY+6);
+  ctx.lineTo(WALL_L, topY+6);
+  ctx.closePath();
+  ctx.fill();
+
+  // a few small flowers/daisies scattered on the lawn for texture
+  const flowers = [0.12, 0.3, 0.52, 0.71, 0.88];
+  for (let i=0;i<flowers.length;i++){
+    const fx = WALL_L + (WALL_R-WALL_L)*flowers[i];
+    const fy = topY + bandH*0.6 + (i%2)*bandH*0.2;
+    ctx.fillStyle = '#fff6b8';
+    for (let k=0;k<5;k++){
+      const ang = (Math.PI*2/5)*k;
+      ctx.beginPath();
+      ctx.ellipse(fx+Math.cos(ang)*3, fy+Math.sin(ang)*3, 2.4, 1.6, ang, 0, Math.PI*2);
+      ctx.fill();
+    }
+    ctx.fillStyle = '#ffcf4d';
+    ctx.beginPath(); ctx.arc(fx, fy, 1.8, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+
+  // re-stroke the jar's bottom edge on top of the grass so the basket rim stays crisp
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 6;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(WALL_L, FLOOR);
+  ctx.lineTo(WALL_R, FLOOR);
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(46,125,50,0.5)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(WALL_L, FLOOR);
+  ctx.lineTo(WALL_R, FLOOR);
+  ctx.stroke();
+}
+
+function drawDangerLine(){
+  // the overflow threshold, drawn as a row of torn bamboo leaves instead of a plain line —
+  // still marks exactly where a settled fruit triggers game over
+  ctx.save();
+  const leafW = 20;
+  let x = WALL_L;
+  let i = 0;
+  while (x < WALL_R){
+    const w = Math.min(leafW, WALL_R - x);
+    drawTornBambooLeaf(x, CEILING, w, i);
+    x += w * 0.86; // slight overlap between leaves
+    i++;
+  }
+  ctx.restore();
+}
+
+function drawTornBambooLeaf(x, y, w, seed){
+  const rnd = (n) => Math.abs(Math.sin((seed+1)*12.9898 + n*78.233)) % 1;
+  const droop = (rnd(1)-0.5)*4;
+  const tilt = (rnd(2)-0.5)*0.35;
+  ctx.save();
+  ctx.translate(x + w/2, y + droop);
+  ctx.rotate(tilt);
+  const halfW = w/2;
+  const h = 7 + rnd(3)*4;
+  ctx.fillStyle = `rgba(${104+rnd(4)*20|0},${158+rnd(5)*25|0},${74+rnd(6)*20|0},0.78)`;
+  ctx.beginPath();
+  ctx.moveTo(-halfW, 1);
+  // ragged, torn top edge — a jagged zigzag rather than a smooth leaf curve
+  const teeth = 4;
+  for (let t=0; t<=teeth; t++){
+    const tx = -halfW + (w*t/teeth);
+    const ty = (t % 2 === 0) ? -h*(0.5+rnd(t+7)*0.6) : -h*0.15;
+    ctx.lineTo(tx, ty);
+  }
+  ctx.lineTo(halfW, 1);
+  ctx.closePath();
+  ctx.fill();
+  // a thin midrib vein for a bit of leaf texture
+  ctx.strokeStyle = 'rgba(70,110,45,0.5)';
+  ctx.lineWidth = 0.8;
+  ctx.beginPath();
+  ctx.moveTo(-halfW*0.8, 0);
+  ctx.lineTo(halfW*0.8, 0);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawGhost(){
+  const r = TIERS[currentTier].r;
+  ctx.save();
+  ctx.globalAlpha = 0.9;
+  ctx.setLineDash([4,5]);
+  ctx.strokeStyle = 'rgba(120,100,150,0.35)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(dropX, CEILING-r-4);
+  ctx.lineTo(dropX, FLOOR);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  drawFruitShape(ctx, dropX, CEILING-r-4, r, currentTier, 0, 0);
+  ctx.restore();
+}
+
+// Pre-rendered fruit sprites. Re-running every fruit's full vector art (several
+// gradients, clips and dozens of path ops each) 60x/sec scales badly once a
+// couple dozen fruits are on screen — most of the per-frame cost was redrawing
+// shapes that never visually change. Each tier is drawn once to an offscreen
+// canvas here; the live render just stamps that bitmap with drawImage, which is
+// far cheaper, and the per-instance "flash" glow is still applied live via the
+// main context's shadow settings (drawImage picks those up same as any draw).
+let fruitSprites = null;
+function buildFruitSprites(){
+  fruitSprites = TIERS.map((tier, i) => {
+    const r = tier.r;
+    const spriteDPR = Math.max(1, Math.min(DPR, 2));
+    const size = Math.ceil(r*2.6*spriteDPR);
+    const sc = document.createElement('canvas');
+    sc.width = size; sc.height = size;
+    const sctx = sc.getContext('2d');
+    sctx.scale(spriteDPR, spriteDPR);
+    drawFruitShape(sctx, size/(2*spriteDPR), size/(2*spriteDPR), r, i, 0, 0);
+    return { canvas: sc, r, dpr: spriteDPR };
+  });
+}
+
+function drawOrbs(){
+  for (const o of orbs){
+    const sprite = fruitSprites && fruitSprites[o.tier];
+    if (!sprite){ // fallback: sprites not built yet
+      drawFruitShape(ctx, o.x, o.y, o.r + (o.flash||0)*2, o.tier, o.rot||0, o.flash||0);
+      continue;
+    }
+    const drawR = o.r + (o.flash||0)*2;
+    const scale = drawR / sprite.r;
+    const halfSize = sprite.canvas.width / (2*sprite.dpr);
+    ctx.save();
+    ctx.translate(o.x, o.y);
+    ctx.rotate(o.rot||0);
+    if (o.flash){
+      ctx.shadowColor = 'rgba(255,220,120,0.9)';
+      ctx.shadowBlur = 10+o.flash*20;
+    }
+    ctx.scale(scale, scale);
+    ctx.drawImage(sprite.canvas, -halfSize, -halfSize, halfSize*2, halfSize*2);
+    ctx.restore();
+  }
+}
+
+// ---------- Fruit shape renderer ----------
+// Palette tuned to the pastel sky-blue/lavender reference: soft saturated fruit colors,
+// simple kawaii dot-eyes + blush, and a silhouette unique per fruit so each tier reads instantly.
+function drawFruitShape(c, x, y, r, tier, rot, flash){
+  c.save();
+  c.translate(x,y);
+  c.rotate(rot);
+  if (flash){
+    c.shadowColor = 'rgba(255,220,120,0.9)';
+    c.shadowBlur = 10+flash*20;
+  }
+  switch(tier){
+    case 0: drawCherry(c,r); break;
+    case 1: drawStrawberry(c,r); break;
+    case 2: drawGrape(c,r); break;
+    case 3: drawPlum(c,r); break;
+    case 4: drawLemon(c,r); break;
+    case 5: drawApple(c,r); break;
+    case 6: drawOrange(c,r); break;
+    case 7: drawBanana(c,r); break;
+    case 8: drawPeach(c,r); break;
+    case 9: drawKiwi(c,r); break;
+    case 10: drawWatermelon(c,r); break;
+  }
+  c.restore();
+}
+
+function faceDots(c, r, spread=0.32, eyY=-0.02, mouthY=0.28, size=1){
+  const ex = r*spread, ey = r*eyY, er = Math.max(1.6, r*0.09*size);
+  c.fillStyle = '#3a2a3f';
+  c.beginPath(); c.arc(-ex, ey, er, 0, Math.PI*2); c.fill();
+  c.beginPath(); c.arc(ex, ey, er, 0, Math.PI*2); c.fill();
+  // blush
+  c.fillStyle = 'rgba(255,140,160,0.45)';
+  c.beginPath(); c.ellipse(-ex*1.7, r*mouthY*0.55, r*0.14, r*0.08, 0, 0, Math.PI*2); c.fill();
+  c.beginPath(); c.ellipse(ex*1.7, r*mouthY*0.55, r*0.14, r*0.08, 0, 0, Math.PI*2); c.fill();
+  // smile
+  c.strokeStyle = '#3a2a3f';
+  c.lineWidth = Math.max(1.7, r*0.075*size);
+  c.lineCap = 'round';
+  c.beginPath();
+  c.arc(0, r*mouthY*0.3, r*0.18, 0.15*Math.PI, 0.85*Math.PI);
+  c.stroke();
+}
+
+function radial(c, r, c0, c1, c2){
+  const g = c.createRadialGradient(-r*0.35,-r*0.4,r*0.1, 0,0,r);
+  g.addColorStop(0, c0);
+  g.addColorStop(0.55, c1);
+  g.addColorStop(1, c2);
+  return g;
+}
+
+function stemLeaf(c, r, leafHue='hsl(120,55%,55%)'){
+  c.strokeStyle = '#6b8f4e';
+  c.lineWidth = Math.max(1.5, r*0.1);
+  c.beginPath();
+  c.moveTo(0,-r*0.9);
+  c.lineTo(r*0.08,-r*1.15);
+  c.stroke();
+  c.fillStyle = leafHue;
+  c.beginPath();
+  c.ellipse(r*0.32,-r*1.12, r*0.26, r*0.14, -0.5, 0, Math.PI*2);
+  c.fill();
+}
+
+function drawCherry(c, r){
+  const rr = r*0.72;
+  c.fillStyle = radial(c, rr, '#ffb3c6', '#ef4d6b', '#c02848');
+  c.beginPath(); c.arc(-rr*0.5, rr*0.35, rr, 0, Math.PI*2); c.fill();
+  c.beginPath(); c.arc(rr*0.62, rr*0.15, rr*0.92, 0, Math.PI*2); c.fill();
+  c.strokeStyle = '#6b8f4e';
+  c.lineWidth = Math.max(1.3, r*0.09);
+  c.beginPath();
+  c.moveTo(-rr*0.5, rr*0.35-rr*0.85);
+  c.quadraticCurveTo(-rr*0.1,-rr*1.3, rr*0.15,-rr*1.5);
+  c.stroke();
+  c.beginPath();
+  c.moveTo(rr*0.62, rr*0.15-rr*0.85);
+  c.quadraticCurveTo(rr*0.3,-rr*1.2, rr*0.15,-rr*1.5);
+  c.stroke();
+  c.fillStyle = '#7bb35a';
+  c.beginPath(); c.ellipse(rr*0.15,-rr*1.55, rr*0.28,rr*0.15,-0.3,0,Math.PI*2); c.fill();
+  faceDots(c, rr*0.92, 0.34, 0.05, 0.32);
+}
+
+function drawStrawberry(c, r){
+  c.fillStyle = radial(c, r, '#ffc2d1', '#ff5d7a', '#d92e52');
+  c.beginPath();
+  c.moveTo(0, r*1.05);
+  c.bezierCurveTo(-r*1.05, r*0.75, -r*0.95, -r*0.55, 0, -r*0.35);
+  c.bezierCurveTo(r*0.95, -r*0.55, r*1.05, r*0.75, 0, r*1.05);
+  c.fill();
+  c.fillStyle = 'rgba(255,225,140,0.85)';
+  const seeds = 10;
+  for (let i=0;i<seeds;i++){
+    const t = i/seeds;
+    const ang = -0.3 + t*1.3*Math.PI - 0.6;
+    const rad = r*(0.35+0.4*Math.sin(t*Math.PI));
+    const sx = Math.sin(i*2.1)*r*0.55;
+    const sy = -r*0.1 + t*r*1.0;
+    c.beginPath();
+    c.ellipse(sx, sy, r*0.05, r*0.08, 0.3, 0, Math.PI*2);
+    c.fill();
+  }
+  c.fillStyle = '#6fae4c';
+  for (let i=-2;i<=2;i++){
+    c.beginPath();
+    c.moveTo(0,-r*0.35);
+    c.lineTo(i*r*0.22, -r*0.75 - Math.abs(i)*r*0.05);
+    c.lineTo((i+0.5)*r*0.22, -r*0.4);
+    c.closePath();
+    c.fill();
+  }
+  faceDots(c, r*0.85, 0.3, 0.15, 0.55);
+}
+
+function drawGrape(c, r){
+  const positions = [[-0.45,-0.35],[0.1,-0.5],[0.55,-0.3],[-0.6,0.25],[-0.05,0.15],[0.5,0.3],[-0.05,0.75]];
+  c.fillStyle = 'rgba(120,70,140,0.25)';
+  for (const [dx,dy] of positions){
+    c.beginPath(); c.arc(dx*r*1.15, dy*r*1.15, r*0.46, 0, Math.PI*2); c.fill();
+  }
+  for (const [dx,dy] of positions){
+    c.fillStyle = radial(c, r*0.42, '#d9b3ff', '#9b5de5', '#6a2fb5');
+    c.beginPath(); c.arc(dx*r*1.15, dy*r*1.15, r*0.42, 0, Math.PI*2); c.fill();
+  }
+  c.strokeStyle = '#6b8f4e';
+  c.lineWidth = Math.max(1.3, r*0.08);
+  c.beginPath(); c.moveTo(0,-r*0.9); c.lineTo(0,-r*1.2); c.stroke();
+  c.fillStyle = '#7bb35a';
+  c.beginPath(); c.ellipse(r*0.22,-r*1.18, r*0.22,r*0.12,-0.3,0,Math.PI*2); c.fill();
+  faceDots(c, r*0.5, 0.36, 0.7, 0.4);
+}
+
+function drawPlum(c, r){
+  c.fillStyle = radial(c, r, '#f3b8d4', '#c23d78', '#6e1f42');
+  c.beginPath();
+  c.moveTo(0,-r*0.9);
+  c.bezierCurveTo(r*1.02,-r*1.0, r*1.05, r*0.78, 0, r*1.02);
+  c.bezierCurveTo(-r*1.05, r*0.78, -r*1.02,-r*1.0, 0,-r*0.9);
+  c.fill();
+  c.fillStyle = 'rgba(255,255,255,0.28)';
+  c.beginPath();
+  c.ellipse(-r*0.3,-r*0.25, r*0.16, r*0.3, -0.4, 0, Math.PI*2);
+  c.fill();
+  c.strokeStyle = 'rgba(40,15,55,0.35)';
+  c.lineWidth = Math.max(1, r*0.04);
+  c.beginPath();
+  c.moveTo(0,-r*0.7);
+  c.quadraticCurveTo(r*0.04,-r*0.1, 0, r*0.65);
+  c.stroke();
+  stemLeaf(c, r*0.92, '#6fae4c');
+  faceDots(c, r*0.8, 0.3, 0.05, 0.5);
+}
+
+function drawLemon(c, r){
+  c.fillStyle = radial(c, r, '#fff4b0', '#ffd93d', '#e0b400');
+  c.beginPath();
+  c.ellipse(0,0, r*0.82, r*1.02, 0, 0, Math.PI*2);
+  c.fill();
+  c.fillStyle = '#e0b400';
+  c.beginPath(); c.ellipse(0,-r*0.98, r*0.13, r*0.1, 0,0,Math.PI*2); c.fill();
+  c.beginPath(); c.ellipse(0, r*0.98, r*0.13, r*0.1, 0,0,Math.PI*2); c.fill();
+  faceDots(c, r*0.75, 0.32, 0, 0.5);
+}
+
+function drawApple(c, r){
+  c.fillStyle = radial(c, r, '#ffd1cf', '#ff5a52', '#c22b2b');
+  c.beginPath();
+  c.moveTo(0,-r*0.85);
+  c.bezierCurveTo(r*1.05,-r*1.05, r*1.1, r*0.75, 0, r*1.02);
+  c.bezierCurveTo(-r*1.1, r*0.75, -r*1.05,-r*1.05, 0,-r*0.85);
+  c.fill();
+  c.fillStyle = 'rgba(255,255,255,0.35)';
+  c.beginPath();
+  c.ellipse(-r*0.32,-r*0.2, r*0.18, r*0.32, -0.4, 0, Math.PI*2);
+  c.fill();
+  stemLeaf(c, r*0.95, '#6fae4c');
+  faceDots(c, r*0.85, 0.3, 0.05, 0.5);
+}
+
+function drawOrange(c, r){
+  c.fillStyle = radial(c, r, '#ffdca0', '#ff9d33', '#d9700d');
+  c.beginPath(); c.arc(0,0,r,0,Math.PI*2); c.fill();
+  c.fillStyle = 'rgba(210,110,10,0.25)';
+  for (let i=0;i<10;i++){
+    const ang = i*0.62;
+    c.beginPath();
+    c.arc(Math.cos(ang)*r*0.6, Math.sin(ang)*r*0.6, r*0.05, 0, Math.PI*2);
+    c.fill();
+  }
+  c.fillStyle = '#6fae4c';
+  c.beginPath(); c.ellipse(0,-r*0.98, r*0.2,r*0.12,0,0,Math.PI*2); c.fill();
+  faceDots(c, r*0.85, 0.32, 0.05, 0.5);
+}
+
+function drawBanana(c, r){
+  // a tapered crescent built from offset points along a curved centerline,
+  // so it reads as an elongated, pointed-tip banana rather than a blob
+  const p0 = {x:-r*0.9, y:r*0.34};
+  const p1 = {x:0,      y:-r*1.08};
+  const p2 = {x:r*0.9,  y:-r*0.3};
+  const steps = 16;
+  const topPts = [], botPts = [];
+  for (let i=0;i<=steps;i++){
+    const t = i/steps, mt = 1-t;
+    const x = mt*mt*p0.x + 2*mt*t*p1.x + t*t*p2.x;
+    const y = mt*mt*p0.y + 2*mt*t*p1.y + t*t*p2.y;
+    const dx = 2*mt*(p1.x-p0.x) + 2*t*(p2.x-p1.x);
+    const dy = 2*mt*(p1.y-p0.y) + 2*t*(p2.y-p1.y);
+    const len = Math.hypot(dx,dy) || 1;
+    const nx = -dy/len, ny = dx/len;
+    const w = Math.sin(Math.PI*t) * r*0.33;
+    topPts.push({x:x+nx*w, y:y+ny*w});
+    botPts.push({x:x-nx*w, y:y-ny*w});
+  }
+  c.fillStyle = radial(c, r*1.15, '#fff8c4', '#ffe066', '#dba800');
+  c.beginPath();
+  c.moveTo(topPts[0].x, topPts[0].y);
+  for (const p of topPts) c.lineTo(p.x, p.y);
+  for (let i=botPts.length-1; i>=0; i--) c.lineTo(botPts[i].x, botPts[i].y);
+  c.closePath();
+  c.fill();
+
+  // a faint ridge line tracing the peel's curve for a touch of texture
+  c.strokeStyle = 'rgba(200,158,40,0.4)';
+  c.lineWidth = Math.max(1, r*0.025);
+  c.beginPath();
+  for (let i=0;i<topPts.length;i++){
+    const p = topPts[i];
+    if (i===0) c.moveTo(p.x,p.y); else c.lineTo(p.x,p.y);
+  }
+  c.stroke();
+
+  // browned tips at both pointed ends
+  c.fillStyle = '#8a6b1f';
+  c.beginPath(); c.ellipse(p0.x, p0.y, r*0.07, r*0.1, 0.8, 0, Math.PI*2); c.fill();
+  c.beginPath(); c.ellipse(p2.x, p2.y, r*0.07, r*0.1, -0.4, 0, Math.PI*2); c.fill();
+
+  const cx = 0.25*p0.x + 0.5*p1.x + 0.25*p2.x;
+  const cy = 0.25*p0.y + 0.5*p1.y + 0.25*p2.y;
+  c.save();
+  c.translate(cx, cy + r*0.08);
+  faceDots(c, r*0.5, 0.48, 0, 0.75);
+  c.restore();
+}
+
+function drawPeach(c, r){
+  c.fillStyle = radial(c, r, '#ffe3c2', '#ffab7a', '#e8567a');
+  c.beginPath();
+  c.moveTo(0,-r*0.9);
+  c.bezierCurveTo(r*1.02,-r*1.0, r*1.05, r*0.8, 0, r*1.02);
+  c.bezierCurveTo(-r*1.05, r*0.8, -r*1.02,-r*1.0, 0,-r*0.9);
+  c.fill();
+  c.strokeStyle = 'rgba(200,80,60,0.4)';
+  c.lineWidth = Math.max(1, r*0.05);
+  c.beginPath();
+  c.moveTo(0,-r*0.75);
+  c.quadraticCurveTo(r*0.05, -r*0.1, 0, r*0.7);
+  c.stroke();
+  c.fillStyle = '#6fae4c';
+  c.beginPath(); c.ellipse(-r*0.1,-r*0.92, r*0.22,r*0.12,-0.3,0,Math.PI*2); c.fill();
+  faceDots(c, r*0.85, 0.3, 0.05, 0.5);
+}
+
+function drawKiwi(c, r){
+  // fuzzy brown skin, sliced to show the bright green flesh and starburst seed ring
+  c.fillStyle = radial(c, r, '#c9a876', '#a9824f', '#7d5f38');
+  c.beginPath(); c.arc(0,0,r,0,Math.PI*2); c.fill();
+  c.save();
+  c.beginPath(); c.arc(0,0,r*0.78,0,Math.PI*2); c.clip();
+  c.fillStyle = radial(c, r*0.8, '#e9f78a', '#9fd14a', '#5a9a2e');
+  c.beginPath(); c.arc(0,0,r*0.8,0,Math.PI*2); c.fill();
+  c.fillStyle = '#fdfbe8';
+  c.beginPath(); c.arc(0,0,r*0.2,0,Math.PI*2); c.fill();
+  c.strokeStyle = 'rgba(60,40,10,0.55)';
+  c.lineWidth = Math.max(1, r*0.035);
+  const seeds = 14;
+  for (let i=0;i<seeds;i++){
+    const ang = (Math.PI*2/seeds)*i;
+    const rad = r*0.5;
+    c.beginPath();
+    c.ellipse(Math.cos(ang)*rad, Math.sin(ang)*rad, r*0.045, r*0.025, ang, 0, Math.PI*2);
+    c.fill();
+  }
+  c.restore();
+  faceDots(c, r*0.86, 0.3, 0.08, 0.5);
+}
+
+function drawWatermelon(c, r){
+  c.fillStyle = radial(c, r, '#c9f2a0', '#6fc24a', '#2e7d32');
+  c.beginPath(); c.arc(0,0,r,0,Math.PI*2); c.fill();
+  c.strokeStyle = 'rgba(20,90,30,0.55)';
+  c.lineCap='round';
+  for (let i=-2;i<=2;i++){
+    c.lineWidth = Math.max(2, r*0.06);
+    c.beginPath();
+    c.moveTo(i*r*0.32, -Math.sqrt(Math.max(0,r*r-(i*r*0.32)*(i*r*0.32)))*0.98);
+    c.quadraticCurveTo(i*r*0.32*1.3, 0, i*r*0.32, Math.sqrt(Math.max(0,r*r-(i*r*0.32)*(i*r*0.32)))*0.98);
+    c.stroke();
+  }
+  c.fillStyle = 'rgba(255,255,255,0.28)';
+  c.beginPath();
+  c.ellipse(-r*0.35,-r*0.35, r*0.22, r*0.4, -0.4, 0, Math.PI*2);
+  c.fill();
+  faceDots(c, r*0.9, 0.3, 0.1, 0.5, 1.3);
+}
+
+
+// ---------- Loop ----------
+let lastT = null;
+let lastCW = 0, lastCH = 0;
+let sizeCheckCounter = 0;
+function loop(t){
+  lastLoopWall = performance.now();
+  // self-heal: if the canvas box changed (including going from 0 at first
+  // paint to its real size inside the artifact viewer), rebuild the play field.
+  // getBoundingClientRect() forces a layout reflow, so it's checked a few times
+  // a second rather than on every single frame — the window 'resize' listener
+  // already covers the common case instantly; this is just a safety net.
+  sizeCheckCounter++;
+  if (sizeCheckCounter % 6 === 0){
+    const rect = canvas.getBoundingClientRect();
+    if (Math.abs(rect.width - lastCW) > 1 || Math.abs(rect.height - lastCH) > 1){
+      lastCW = rect.width; lastCH = rect.height;
+      if (rect.width > 0 && rect.height > 0) resize();
+    }
+  }
+  if (lastT===null) lastT=t;
+  let dt = (t-lastT)/1000;
+  lastT = t;
+  dt = Math.min(dt, 0.033);
+  try {
+    if (W > 0 && H > 0){
+      physicsStep(dt);
+      render();
+    }
+  } catch(err){
+    const el = document.getElementById('debugError');
+    if (el){
+      el.style.display = 'block';
+      el.textContent = 'Loop error: ' + (err && err.message) + '\n' + (err && err.stack || '');
+    }
+  }
+}
+
+restartBtn.addEventListener('click', newRun);
+overRestart.addEventListener('click', newRun);
+
+function updateMuteBtn(){
+  muteIconOn.style.display = soundMuted ? 'none' : '';
+  muteIconOff.style.display = soundMuted ? '' : 'none';
+  muteBtn.setAttribute('aria-pressed', String(soundMuted));
+  muteBtn.setAttribute('aria-label', soundMuted ? 'Unmute sound' : 'Mute sound');
+}
+updateMuteBtn();
+muteBtn.addEventListener('click', () => {
+  soundMuted = !soundMuted;
+  try { localStorage.setItem('ff_muted', soundMuted ? '1' : '0'); } catch(e){}
+  updateMuteBtn();
+  if (!soundMuted) playTone(600, { duration:0.06, type:'sine', gain:0.12 });
+});
+
+let loopTimer = null;
+let lastLoopWall = 0;
+function startLoopDriver(){
+  // requestAnimationFrame is the primary driver — it's synced to the display's
+  // actual refresh rate, so motion is smooth instead of the slight stutter a
+  // plain setInterval(16) produces (its ticks don't line up with vsync).
+  // The catch: rAF is paused by the browser for iframes/elements it considers
+  // off-screen or not "visible", which can happen inside a hosted artifact
+  // viewer. So a low-frequency watchdog timer checks whether rAF has gone
+  // quiet and, only then, drives the loop itself until rAF resumes.
+  if (loopTimer) return;
+  requestAnimationFrame(function rafTick(t){
+    loop(t);
+    requestAnimationFrame(rafTick);
+  });
+  loopTimer = setInterval(() => {
+    if (performance.now() - lastLoopWall > 300) loop(performance.now());
+  }, 400);
+}
+
+function start(savedState){
+  try {
+    newRun();
+    startLoopDriver();
+  } catch(err){
+    const el = document.getElementById('debugError');
+    if (el){
+      el.style.display = 'block';
+      el.textContent = 'Start error: ' + (err && err.message) + '\n' + (err && err.stack || '');
+    }
+  }
+}
+
+try {
+  if (window.claude?.hot){
+    window.claude.hot.snapshot(() => ({}));
+    window.claude.hot.ready ? window.claude.hot.ready(start) : start({});
+  } else {
+    start({});
+  }
+} catch(err){
+  const el = document.getElementById('debugError');
+  if (el){
+    el.style.display = 'block';
+    el.textContent = 'Init error: ' + (err && err.message) + '\n' + (err && err.stack || '');
+  }
+}
+})();
+</script>
+
+</body></html>
